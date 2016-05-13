@@ -20,20 +20,12 @@ struct doubleVector
 	double y;
 };
 
-enum Direction
-{
-	NONE,
-	LEFT,
-	RIGHT,
-	DOWN,
-	UP
-};
-
 class Character
 {
 public:
 	Character();
 	void move(double deltaTime);
+	void jump();
 
 	doubleVector velocity;
 	double gravity;
@@ -49,7 +41,6 @@ public:
 
 	bool airBorne;
 	bool freeFall;
-	Direction primDirection;
 };
 
 Character::Character()
@@ -71,7 +62,6 @@ Character::Character()
 	rect.h = 0;
 	airBorne = false;
 	freeFall = false;
-	primDirection = NONE;
 }
 
 void Character::move(double deltaTime)
@@ -83,7 +73,7 @@ void Character::move(double deltaTime)
 		{
 			velocity.y -= gravity * deltaTime;
 		}
-		else
+		else //elevation
 		{
 			jumpHeight += velocity.y * deltaTime;
 			if (jumpHeight >= jumpHeightMax)
@@ -96,15 +86,25 @@ void Character::move(double deltaTime)
 		}
 	}
 
-
-
 	position.x += velocity.x * deltaTime;
 
+	//landing
+	if (position.y < 0.0)
+	{
+		airBorne = false;
+		freeFall = false;
+		position.y = 0.0;
+	}
+
 	rect.x = int(position.x - origin.x + 0.5);
-	rect.y = SCREEN_HEIGHT - int(position.y - origin.y + 0.5);
+	rect.y = SCREEN_HEIGHT - int(position.y - origin.y + 0.5); //invert y-axis for rendering
 }
 
-
+void Character::jump()
+{
+	airBorne = true;
+	velocity.y = jumpVelocity;
+}
 
 bool init()
 {
@@ -146,15 +146,16 @@ int main()
 
 	Player.rect.w = 32;
 	Player.rect.h = 64;
+	Player.rect.x = int(Player.position.x + 0.5);
+	Player.rect.y = int(Player.position.y + 0.5);
 	Player.origin.x = (double)(Player.rect.w / 2);
 	Player.origin.y = -(double)Player.rect.h;
 
-	Player.rect.x = int(Player.position.x + 0.5);
-	Player.rect.y = int(Player.position.y + 0.5);
-
 	const Uint8 *keystate = SDL_GetKeyboardState(NULL);
+	SDL_Event e;
+	bool quit = false;
 
-	double frameTime;
+	double frameTime = 0.0;
 	system_clock::time_point lastTime = system_clock::now();
 	while (true)
 	{
@@ -163,18 +164,63 @@ int main()
 		lastTime = system_clock::now();
 
 
+		//event block
 		SDL_PumpEvents();
-
-		if (keystate[SDL_SCANCODE_RIGHT] && !keystate[SDL_SCANCODE_LEFT]) Player.velocity.x = Player.runSpeed;
-		else if (keystate[SDL_SCANCODE_LEFT] && !keystate[SDL_SCANCODE_RIGHT]) Player.velocity.x = -Player.runSpeed;
-		else if (!keystate[SDL_SCANCODE_LEFT] && !keystate[SDL_SCANCODE_RIGHT]) Player.velocity.x = 0.0;
-
-
-
-		if (keystate[SDL_SCANCODE_UP] && !Player.freeFall)
+		while (SDL_PollEvent(&e))
 		{
-			Player.velocity.y = Player.jumpVelocity;
-			Player.airBorne = true;
+			if (e.type == SDL_WINDOWEVENT)
+			{
+				mainWindow.handleEvents(&e);
+			}
+			if (e.type == SDL_QUIT)
+			{
+				quit = true;
+			}
+			if (e.type == SDL_KEYDOWN)
+			{
+				switch (e.key.keysym.sym)
+				{
+				case SDLK_a:
+				case SDLK_LEFT: 
+				{
+					Player.velocity.x = -Player.runSpeed;
+					break;
+				}
+				case SDLK_d:
+				case SDLK_RIGHT:	
+				{
+					Player.velocity.x = Player.runSpeed;
+					break;
+				}
+				default: break;
+				}
+			}
+			else if (e.type == SDL_KEYUP)
+			{
+				switch (e.key.keysym.sym)
+				{
+				case SDLK_a:
+				case SDLK_LEFT:
+				{
+					if (keystate[SDL_SCANCODE_RIGHT] || keystate[SDL_SCANCODE_D]) Player.velocity.x = Player.runSpeed;
+					else Player.velocity.x = 0.0;
+					break;
+				}
+				case SDLK_d:
+				case SDLK_RIGHT:
+				{
+					if (keystate[SDL_SCANCODE_LEFT] || keystate[SDL_SCANCODE_A]) Player.velocity.x = -Player.runSpeed;
+					else Player.velocity.x = 0.0;
+					break;
+				}
+				default: break;
+				}
+			}
+		}
+
+		if (!Player.freeFall && (keystate[SDL_SCANCODE_UP] || keystate[SDL_SCANCODE_W]))
+		{
+			Player.jump();
 		}
 		else if (Player.airBorne)
 		{
@@ -183,15 +229,8 @@ int main()
 
 		Player.move(frameTime);
 
-		if (Player.position.y <= 0.0)
-		{
-			Player.airBorne = false;
-			Player.freeFall = false;
-			Player.position.y = 0.0;
-		}
-
-
-
+	
+		//rendering block
 		SDL_SetRenderDrawColor(mainWindow.ren, 0, 0, 0, 255);
 		SDL_RenderClear(mainWindow.ren);
 
@@ -199,9 +238,8 @@ int main()
 		SDL_RenderFillRect(mainWindow.ren, &Player.rect);
 		SDL_RenderPresent(mainWindow.ren);
 
-		//SDL_Delay(1);
+		SDL_Delay(1);
 	}
 
 	close();
 }
-//boo
