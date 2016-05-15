@@ -142,10 +142,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Entity.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Spritesheet.cpp" />
+    <ClCompile Include="Tilemap.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Entity.h" />
+    <ClInclude Include="Spritesheet.h" />
+    <ClInclude Include="Tilemap.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
