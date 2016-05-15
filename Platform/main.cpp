@@ -63,6 +63,7 @@ public:
 	double jumpVelocity;
 	double jumpHeight;
 	double jumpHeightMax;
+	double terminalVelocity;
 	doubleVector position;
 	doubleVector origin;
 	doubleBounds bounds;
@@ -82,6 +83,7 @@ Character::Character()
 	jumpVelocity = 0.0;
 	jumpHeight = 0.0;
 	jumpHeightMax = 0.0;
+	terminalVelocity = 0.0;
 	position.x = 0.0;
 	position.y = 0.0;
 	origin.x = 0.0;
@@ -102,47 +104,58 @@ void Character::move(double deltaTime)
 {
 	if (airBorne)
 	{
-		if (velocity.y < 0.0)
+		if (freeFall && velocity.y < terminalVelocity)
 		{
-			position.y += min(velocity.y * deltaTime, bounds.up);
+			velocity.y = min(velocity.y + gravity * deltaTime, terminalVelocity);
 		}
-		if (velocity.y > 0.0)
+
+		if (velocity.y < 0.0)	//rise
 		{
-			position.y += min(velocity.y * deltaTime, bounds.down);
-		}
-		
-		if (freeFall)
-		{
-			velocity.y += gravity * deltaTime;
-		}
-		else //elevation0
-		{
+			position.y += max(velocity.y * deltaTime, -bounds.up);
+
 			jumpHeight -= velocity.y * deltaTime;
-			if (jumpHeight >= jumpHeightMax)
+
+			if (jumpHeight >= jumpHeightMax)	//max jump
 			{
 				position.y += jumpHeight - jumpHeightMax;
 
 				jumpHeight = 0.0;
 				freeFall = true;
 			}
+			else if (bounds.up < 0.0001) //hit ceiling
+			{
+				jumpHeight = 0.0;
+				freeFall = true;
+				velocity.y = 0.0;
+			}
 		}
+		else //fall
+		{
+			position.y += min(velocity.y * deltaTime, bounds.down);
+
+			//landing
+			if (bounds.down < 0.0001)
+			{
+				jumpHeight = 0.0;
+				airBorne = false;
+				freeFall = false;
+				velocity.y = 0.0;
+			}
+		}
+	}
+	else if (bounds.down > 0.0001)	//fall through
+	{
+		airBorne = true;
+		freeFall = true;
 	}
 
 	if (velocity.x < 0.0)
 	{
-		position.x += min(velocity.x * deltaTime, bounds.left);
+		position.x += max(velocity.x * deltaTime, -bounds.left);
 	}
 	else if (velocity.x > 0.0)
 	{
 		position.x += min(velocity.x * deltaTime, bounds.right);
-	}
-
-	//landing
-	if (position.y > SCREEN_HEIGHT || bounds.down < 0.0001)
-	{
-		airBorne = false;
-		freeFall = false;
-		//position.y = SCREEN_HEIGHT;
 	}
 
 	rect.x = int(position.x - origin.x + 0.5);
@@ -196,8 +209,8 @@ double scanDistance(doubleVector pos, Direction direction, const Tilemap& map)
 {
 	double distance;
 
-	int xi = int((pos.x - 0.5) / map.tileRes);
-	int yi = int((pos.y - 0.5) / map.tileRes);
+	int xi = int((pos.x / map.tileRes) - 0.01);
+	int yi = int((pos.y / map.tileRes) - 0.01);
 	while (
 		xi >= 0 
 		&& yi >= 0
@@ -229,8 +242,6 @@ double scanDistance(doubleVector pos, Direction direction, const Tilemap& map)
 
 void scanBoundaries(Character& scanner, const Tilemap& map)
 {
-	//double leftD, rightD, upD, downD;
-
 	//topleft, topright, bottomleft, bottomright
 	doubleVector tl, tr, bl, br;
 
@@ -243,8 +254,6 @@ void scanBoundaries(Character& scanner, const Tilemap& map)
 	scanner.bounds.right = min(scanDistance(tr, RIGHT, map), scanDistance(br, RIGHT, map));
 	scanner.bounds.up = min(scanDistance(tl, UP, map), scanDistance(tr, UP, map));
 	scanner.bounds.down = min(scanDistance(bl, DOWN, map), scanDistance(br, DOWN, map));
-
-	cout << scanner.bounds.left << endl;
 }
 
 int main()
@@ -258,11 +267,12 @@ int main()
 
 	Character Player;
 	Player.position.x = 100;
-	Player.position.y = SCREEN_HEIGHT - 100;
+	Player.position.y = SCREEN_HEIGHT - 90;
 	Player.gravity = 5000.0;
 	Player.runSpeed = 500.0;
-	Player.jumpVelocity = 1200.0;
-	Player.jumpHeightMax = 200;
+	Player.jumpVelocity = 800.0;
+	Player.jumpHeightMax = 128.0;
+	Player.terminalVelocity = 1024.0;
 
 	Player.rect.w = 32;
 	Player.rect.h = 64;
@@ -361,7 +371,7 @@ int main()
 		SDL_RenderFillRect(mainWindow.ren, &Player.rect);
 		SDL_RenderPresent(mainWindow.ren);
 
-		SDL_Delay(50);
+		SDL_Delay(1);
 	}
 
 	close();
