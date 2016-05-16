@@ -1,4 +1,5 @@
 #include "Window.h"
+#include "Tilemap.h"
 #include <iostream>
 #include <chrono>
 #include <vector>
@@ -10,14 +11,42 @@
 using namespace std;
 using namespace std::chrono;
 
-const int SCREEN_WIDTH = 1000;
-const int SCREEN_HEIGHT = 800;
+const int SCREEN_WIDTH = 32*32;
+const int SCREEN_HEIGHT = 32*18;
 Window mainWindow;
+Tilemap gameMap;
+
+double min(double a, double b)
+{
+	return a < b ? a : b;
+}
+
+double max(double a, double b)
+{
+	return a > b ? a : b;
+}
+
+enum Direction
+{
+	NONE,
+	LEFT,
+	RIGHT,
+	UP,
+	DOWN
+};
 
 struct doubleVector
 {
 	double x;
 	double y;
+};
+
+struct doubleBounds
+{
+	double left;
+	double right;
+	double up;
+	double down;
 };
 
 class Character
@@ -34,8 +63,10 @@ public:
 	double jumpVelocity;
 	double jumpHeight;
 	double jumpHeightMax;
+	double terminalVelocity;
 	doubleVector position;
 	doubleVector origin;
+	doubleBounds bounds;
 
 	SDL_Rect rect;
 
@@ -52,10 +83,15 @@ Character::Character()
 	jumpVelocity = 0.0;
 	jumpHeight = 0.0;
 	jumpHeightMax = 0.0;
+	terminalVelocity = 0.0;
 	position.x = 0.0;
 	position.y = 0.0;
 	origin.x = 0.0;
 	origin.y = 0.0;
+	bounds.left = 0.0;
+	bounds.right = 0.0;
+	bounds.up = 0.0;
+	bounds.down = 0.0;
 	rect.x = 0;
 	rect.y = 0;
 	rect.w = 0;
@@ -68,43 +104,72 @@ void Character::move(double deltaTime)
 {
 	if (airBorne)
 	{
-		position.y += velocity.y * deltaTime;
-		if (freeFall)
+		if (freeFall && velocity.y < terminalVelocity)
 		{
-			velocity.y -= gravity * deltaTime;
+			velocity.y = min(velocity.y + gravity * deltaTime, terminalVelocity);
 		}
-		else //elevation
+
+		if (velocity.y < 0.0)	//rise
 		{
-			jumpHeight += velocity.y * deltaTime;
-			if (jumpHeight >= jumpHeightMax)
+			position.y += max(velocity.y * deltaTime, -bounds.up);
+
+			jumpHeight -= velocity.y * deltaTime;
+
+			if (jumpHeight >= jumpHeightMax)	//max jump
 			{
-				position.y -= jumpHeight - jumpHeightMax;
+				position.y += jumpHeight - jumpHeightMax;
 
 				jumpHeight = 0.0;
 				freeFall = true;
 			}
+			else if (bounds.up < 0.0001) //hit ceiling
+			{
+				jumpHeight = 0.0;
+				freeFall = true;
+				velocity.y = 0.0;
+			}
+		}
+		else //fall
+		{
+			position.y += min(velocity.y * deltaTime, bounds.down);
+
+			//landing
+			if (bounds.down < 0.0001)
+			{
+				jumpHeight = 0.0;
+				airBorne = false;
+				freeFall = false;
+				velocity.y = 0.0;
+			}
 		}
 	}
-
-	position.x += velocity.x * deltaTime;
-
-	//landing
-	if (position.y < 0.0)
+	else if (bounds.down > 0.0001)	//fall through
 	{
-		airBorne = false;
-		freeFall = false;
-		position.y = 0.0;
+		airBorne = true;
+		freeFall = true;
+	}
+
+	if (velocity.x < 0.0)
+	{
+		position.x += max(velocity.x * deltaTime, -bounds.left);
+	}
+	else if (velocity.x > 0.0)
+	{
+		position.x += min(velocity.x * deltaTime, bounds.right);
 	}
 
 	rect.x = int(position.x - origin.x + 0.5);
-	rect.y = SCREEN_HEIGHT - int(position.y - origin.y + 0.5); //invert y-axis for rendering
+	//rect.y = SCREEN_HEIGHT - int(position.y - origin.y + 0.5); //invert y-axis for rendering
+	rect.y = int(position.y - origin.y + 0.5);
 }
 
 void Character::jump()
 {
 	airBorne = true;
-	velocity.y = jumpVelocity;
+	velocity.y = -jumpVelocity;
 }
+
+
 
 bool init()
 {
@@ -123,33 +188,98 @@ bool init()
 
 	if (!mainWindow.init("Platform", SCREEN_WIDTH, SCREEN_HEIGHT)) return false;
 
+	//Initialize PNG loading
+	int imgFlags = IMG_INIT_PNG;
+	if (!(IMG_Init(imgFlags) & imgFlags))
+	{
+		printf("SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError());
+		return false;
+	}
 
 	return true;
 }
 
 void close()
 {
+	IMG_Quit();
 	SDL_Quit();
+}
+
+double scanDistance(doubleVector pos, Direction direction, const Tilemap& map)
+{
+	double distance;
+
+	int xi = int((pos.x / map.tileRes) - 0.01);
+	int yi = int((pos.y / map.tileRes) - 0.01);
+	while (
+		xi >= 0 
+		&& yi >= 0
+		&& xi < map.horiTiles
+		&& yi < map.vertiTiles
+		&& map.getTile(xi, yi) != 1
+		)
+	{
+		switch (direction)
+		{
+		case LEFT:	xi--;	break;
+		case RIGHT:	xi++;	break;
+		case UP:	yi--;	break;
+		case DOWN:	yi++;	break;
+		}
+		
+	}
+
+	switch (direction)
+	{
+	case LEFT:	distance = pos.x - (xi+1)*map.tileRes;	break;
+	case RIGHT:	distance = xi*map.tileRes - pos.x;		break;
+	case UP:	distance = pos.y - (yi+1)*map.tileRes;	break;
+	case DOWN:	distance = yi*map.tileRes - pos.y;		break;
+	}
+	
+	return max(distance, 0.0);
+}
+
+void scanBoundaries(Character& scanner, const Tilemap& map)
+{
+	//topleft, topright, bottomleft, bottomright
+	doubleVector tl, tr, bl, br;
+
+	tl.x = bl.x = scanner.position.x - scanner.origin.x;					//left
+	tr.x = br.x = scanner.position.x - scanner.origin.x + scanner.rect.w;	//right
+	tl.y = tr.y = scanner.position.y - scanner.origin.y;					//top
+	bl.y = br.y = scanner.position.y - scanner.origin.y + scanner.rect.h;	//bottom
+	
+	scanner.bounds.left = min(scanDistance(tl, LEFT, map), scanDistance(bl, LEFT, map));
+	scanner.bounds.right = min(scanDistance(tr, RIGHT, map), scanDistance(br, RIGHT, map));
+	scanner.bounds.up = min(scanDistance(tl, UP, map), scanDistance(tr, UP, map));
+	scanner.bounds.down = min(scanDistance(bl, DOWN, map), scanDistance(br, DOWN, map));
 }
 
 int main()
 {
 	init();
 
+	Spritesheet levelSprites("testpic.png", 32, &mainWindow);
+	gameMap.sprites = &levelSprites;
+	gameMap.loadFile("testmap.map");
+	gameMap.update(&mainWindow);
+
 	Character Player;
 	Player.position.x = 100;
-	Player.position.y = 0;
+	Player.position.y = SCREEN_HEIGHT - 90;
 	Player.gravity = 5000.0;
 	Player.runSpeed = 500.0;
-	Player.jumpVelocity = 1200.0;
-	Player.jumpHeightMax = 200;
+	Player.jumpVelocity = 800.0;
+	Player.jumpHeightMax = 128.0;
+	Player.terminalVelocity = 1024.0;
 
 	Player.rect.w = 32;
 	Player.rect.h = 64;
 	Player.rect.x = int(Player.position.x + 0.5);
 	Player.rect.y = int(Player.position.y + 0.5);
 	Player.origin.x = (double)(Player.rect.w / 2);
-	Player.origin.y = -(double)Player.rect.h;
+	Player.origin.y = (double)Player.rect.h;
 
 	const Uint8 *keystate = SDL_GetKeyboardState(NULL);
 	SDL_Event e;
@@ -157,7 +287,7 @@ int main()
 
 	double frameTime = 0.0;
 	system_clock::time_point lastTime = system_clock::now();
-	while (true)
+	while (!quit)
 	{
 		frameTime = duration_cast<microseconds>(system_clock::now() - lastTime).count() / 1000000.0;
 		if (frameTime > 0.1) frameTime = 0.1;	//at low framerates game becomes frame dependent to avoid collision errors etc.
@@ -227,12 +357,15 @@ int main()
 			Player.freeFall = true;
 		}
 
+		scanBoundaries(Player, gameMap);
 		Player.move(frameTime);
 
 	
 		//rendering block
 		SDL_SetRenderDrawColor(mainWindow.ren, 0, 0, 0, 255);
 		SDL_RenderClear(mainWindow.ren);
+
+		gameMap.render(&mainWindow);
 
 		SDL_SetRenderDrawColor(mainWindow.ren, 255, 0, 0, 255);
 		SDL_RenderFillRect(mainWindow.ren, &Player.rect);
