@@ -35,6 +35,12 @@ enum Direction
 	DOWN
 };
 
+struct intVector
+{
+	int x;
+	int y;
+};
+
 struct doubleVector
 {
 	double x;
@@ -158,9 +164,10 @@ void Character::move(double deltaTime)
 		position.x += min(velocity.x * deltaTime, bounds.right);
 	}
 
-	rect.x = int(position.x - origin.x + 0.5);
+	//truncation is fine
+	rect.x = int(position.x - origin.x);
 	//rect.y = SCREEN_HEIGHT - int(position.y - origin.y + 0.5); //invert y-axis for rendering
-	rect.y = int(position.y - origin.y + 0.5);
+	rect.y = int(position.y - origin.y);
 }
 
 void Character::jump()
@@ -205,12 +212,28 @@ void close()
 	SDL_Quit();
 }
 
-double scanDistance(doubleVector pos, Direction direction, const Tilemap& map)
+double scanDistance(intVector firstTile, intVector lastTile, Direction direction, const Tilemap& map)
 {
 	double distance;
 
-	int xi = int((pos.x / map.tileRes) - 0.01);
-	int yi = int((pos.y / map.tileRes) - 0.01);
+	
+
+	for (int iWidth = firstTile.x; iWidth <= lastTile.x; xi++)
+	{
+		int iDist = 0;
+		while (true)
+		{
+			char tile;
+			switch (direction)
+			{
+			case LEFT:	tile = map.getTile();	break;
+			case RIGHT:	tile = map.getTile();	break;
+			case UP:	tile = map.getTile();	break;
+			case DOWN:	tile = map.getTile();	break;
+			}
+		}
+	}
+
 	while (
 		xi >= 0 
 		&& yi >= 0
@@ -250,10 +273,17 @@ void scanBoundaries(Character& scanner, const Tilemap& map)
 	tl.y = tr.y = scanner.position.y - scanner.origin.y;					//top
 	bl.y = br.y = scanner.position.y - scanner.origin.y + scanner.rect.h;	//bottom
 	
-	scanner.bounds.left = min(scanDistance(tl, LEFT, map), scanDistance(bl, LEFT, map));
-	scanner.bounds.right = min(scanDistance(tr, RIGHT, map), scanDistance(br, RIGHT, map));
-	scanner.bounds.up = min(scanDistance(tl, UP, map), scanDistance(tr, UP, map));
-	scanner.bounds.down = min(scanDistance(bl, DOWN, map), scanDistance(br, DOWN, map));
+	//scanner.bounds.left = scanDistance(tl, bl, LEFT, map);
+	//scanner.bounds.right = min(scanDistance(tr, RIGHT, map), scanDistance(br, RIGHT, map));
+	//scanner.bounds.up = min(scanDistance(tl, UP, map), scanDistance(tr, UP, map));
+	//scanner.bounds.down = scanDistance(scanner.rect, DOWN, map);
+
+
+	int x1 = scanner.rect.x / map.tileRes;
+	int x2 = (scanner.rect.x + scanner.rect.w) / map.tileRes;
+	int y1 = scanner.rect.y / map.tileRes;
+	int y2 = (scanner.rect.y + scanner.rect.h) / map.tileRes;
+
 }
 
 int main()
@@ -276,8 +306,8 @@ int main()
 
 	Player.rect.w = 32;
 	Player.rect.h = 64;
-	Player.rect.x = int(Player.position.x + 0.5);
-	Player.rect.y = int(Player.position.y + 0.5);
+	Player.rect.x = int(Player.position.x);
+	Player.rect.y = int(Player.position.y);
 	Player.origin.x = (double)(Player.rect.w / 2);
 	Player.origin.y = (double)Player.rect.h;
 
