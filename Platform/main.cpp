@@ -3,6 +3,7 @@
 #include <iostream>
 #include <chrono>
 #include <vector>
+#include <cmath>
 
 #ifdef main
 #undef main
@@ -15,6 +16,11 @@ const int SCREEN_WIDTH = 32*32;
 const int SCREEN_HEIGHT = 32*18;
 Window mainWindow;
 Tilemap gameMap;
+
+int min(int a, int b)
+{
+	return a < b ? a : b;
+}
 
 double min(double a, double b)
 {
@@ -212,78 +218,99 @@ void close()
 	SDL_Quit();
 }
 
-double scanDistance(intVector firstTile, intVector lastTile, Direction direction, const Tilemap& map)
+bool checkMapCollision(Character& scanner, const Tilemap& map)
+{
+	int x1 = scanner.rect.x / map.tileRes;
+	int x2 = (scanner.rect.x + scanner.rect.w + map.tileRes - 1) / map.tileRes;
+	int y1 = scanner.rect.y / map.tileRes;
+	int y2 = (scanner.rect.y + scanner.rect.h + map.tileRes - 1) / map.tileRes;
+
+	for (int x = x1; x <= x2; x++)
+	{
+		for (int y = y1; y <= y2; y++)
+		{
+			if (map.getTile(x, y) == 1) return true;
+		}
+	}
+	return false;
+}
+
+double scanDistance(double edge, const Tilemap& map, Direction direction, intVector firstTile, intVector lastTile)
 {
 	double distance;
 
-	
+	//indices of tile to be checked
+	int xi;
+	int yi;
 
-	for (int iWidth = firstTile.x; iWidth <= lastTile.x; xi++)
+	//to keep track of smallest value
+	int minDist = 1000000;
+	int distIndex;
+
+	//for each occupied tile, shoot a ray in desired direction
+	//insert smallest value in distance
+	for (int i = firstTile.y; i <= lastTile.y; i++)
 	{
-		int iDist = 0;
-		while (true)
+		for (int j = firstTile.x; j <= lastTile.x; j++)
 		{
-			char tile;
-			switch (direction)
+			yi = i;
+			xi = j;
+			distIndex = 0;
+
+			while (
+				distIndex < minDist
+				&& xi >= 0
+				&& yi >= 0
+				&& xi < map.horiTiles
+				&& yi < map.vertiTiles
+				&& map.getTile(xi, yi) != 1
+				)
 			{
-			case LEFT:	tile = map.getTile();	break;
-			case RIGHT:	tile = map.getTile();	break;
-			case UP:	tile = map.getTile();	break;
-			case DOWN:	tile = map.getTile();	break;
-			}
-		}
-	}
 
-	while (
-		xi >= 0 
-		&& yi >= 0
-		&& xi < map.horiTiles
-		&& yi < map.vertiTiles
-		&& map.getTile(xi, yi) != 1
-		)
-	{
-		switch (direction)
-		{
-		case LEFT:	xi--;	break;
-		case RIGHT:	xi++;	break;
-		case UP:	yi--;	break;
-		case DOWN:	yi++;	break;
+				switch (direction)
+				{
+				case LEFT:	xi--;	break;
+				case RIGHT:	xi++;	break;
+				case UP:	yi--;	break;
+				case DOWN:	yi++;	break;
+				}
+				distIndex++;
+			}
+			minDist = min(minDist, distIndex);
 		}
-		
 	}
 
 	switch (direction)
 	{
-	case LEFT:	distance = pos.x - (xi+1)*map.tileRes;	break;
-	case RIGHT:	distance = xi*map.tileRes - pos.x;		break;
-	case UP:	distance = pos.y - (yi+1)*map.tileRes;	break;
-	case DOWN:	distance = yi*map.tileRes - pos.y;		break;
+	case LEFT:	distance = edge - (xi + 1)*map.tileRes;	break;
+	case RIGHT:	distance = xi*map.tileRes - edge;		break;
+	case UP:	distance = edge - (yi + 1)*map.tileRes;	break;
+	case DOWN:	distance = yi*map.tileRes - edge;		break;
 	}
-	
-	return max(distance, 0.0);
+
+	return signbit(distance) ? 0.0 : distance;
 }
 
 void scanBoundaries(Character& scanner, const Tilemap& map)
 {
-	//topleft, topright, bottomleft, bottomright
-	doubleVector tl, tr, bl, br;
-
-	tl.x = bl.x = scanner.position.x - scanner.origin.x;					//left
-	tr.x = br.x = scanner.position.x - scanner.origin.x + scanner.rect.w;	//right
-	tl.y = tr.y = scanner.position.y - scanner.origin.y;					//top
-	bl.y = br.y = scanner.position.y - scanner.origin.y + scanner.rect.h;	//bottom
-	
-	//scanner.bounds.left = scanDistance(tl, bl, LEFT, map);
-	//scanner.bounds.right = min(scanDistance(tr, RIGHT, map), scanDistance(br, RIGHT, map));
-	//scanner.bounds.up = min(scanDistance(tl, UP, map), scanDistance(tr, UP, map));
-	//scanner.bounds.down = scanDistance(scanner.rect, DOWN, map);
-
-
+	//scanner's shape is simplified: find every tile which scanner's hitbox overlaps with
+	//get the first and last indices of these tiles in both axes
 	int x1 = scanner.rect.x / map.tileRes;
-	int x2 = (scanner.rect.x + scanner.rect.w) / map.tileRes;
+	int x2 = (scanner.rect.x + scanner.rect.w - 1) / map.tileRes;
 	int y1 = scanner.rect.y / map.tileRes;
-	int y2 = (scanner.rect.y + scanner.rect.h) / map.tileRes;
+	int y2 = (scanner.rect.y + scanner.rect.h - 1) / map.tileRes;
 
+	//position of edges of the hitbox in whichever axis is relevant
+	double left = scanner.position.x - scanner.origin.x;
+	double right = scanner.position.x - scanner.origin.x + scanner.rect.w;
+	double top = scanner.position.y - scanner.origin.y;
+	double bottom = scanner.position.y - scanner.origin.y + scanner.rect.h;
+
+	//get maximum distance scanner can travel in each direction
+	scanner.bounds.left = scanDistance(left, map, LEFT, { x1,y1 }, { x1,y2 });
+	scanner.bounds.right = scanDistance(right, map, RIGHT, { x2,y1 }, { x2,y2 });
+	scanner.bounds.up = scanDistance(top, map, UP, { x1,y1 }, { x2,y1 });
+	scanner.bounds.down = scanDistance(bottom, map, DOWN, { x1,y2 }, { x2,y2 });
 }
 
 int main()
