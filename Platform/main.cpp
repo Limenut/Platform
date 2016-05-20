@@ -123,40 +123,36 @@ void Character::move(double deltaTime)
 
 	if (airBorne)	//airborne
 	{
-		if (freeFall && velocity.y < terminalVelocity)	//gravity
-		{
-			velocity.y = min(velocity.y + gravity * deltaTime, terminalVelocity);
-		}
-
+		double heightVector = velocity.y * deltaTime;
 		if (velocity.y < 0.0)	//rising
-		{		
+		{	
+			double upBound = scanBoundary(UP, gameMap);
+			
+				
 			if (!freeFall)	//actively jumping
 			{
 
 				if (jumpHeight >= jumpHeightMax)	//max jump
 				{
-					position.y += jumpHeight - jumpHeightMax;
+					//heightVector = (jumpHeight - jumpHeightMax);
 					jumpHeight = 0.0;
 					freeFall = true;
 				}
-
-				jumpHeight -= velocity.y * deltaTime;
+				else jumpHeight -= heightVector;
 			}	
 
-			double upBound = scanBoundary(UP, gameMap);
-			position.y += max(velocity.y * deltaTime, -upBound);
-
-			upBound = scanBoundary(UP, gameMap);
-			if (upBound < 0.0001) //hit ceiling
+			if (-heightVector > upBound) //hit ceiling
 			{
+				position.y -= upBound;
 				jumpHeight = 0.0;
 				freeFall = true;
 				velocity.y = 0.0;
 			}
+			else position.y += heightVector;
 		}
 		else //falling
 		{
-			position.y += min(velocity.y * deltaTime, downBound);
+			position.y += min(heightVector, downBound);
 
 			//landing
 			if (downBound < 0.0001)
@@ -166,6 +162,11 @@ void Character::move(double deltaTime)
 				freeFall = false;
 				velocity.y = 0.0;
 			}
+		}
+
+		if (freeFall && velocity.y < terminalVelocity)	//gravity
+		{
+			velocity.y = min(velocity.y + gravity * deltaTime, terminalVelocity);
 		}
 	}
 
@@ -465,7 +466,7 @@ int main()
 		SDL_RenderFillRect(mainWindow.ren, &Player.rect);
 		SDL_RenderPresent(mainWindow.ren);
 
-		SDL_Delay(50);
+		SDL_Delay(1);
 	}
 
 	close();
