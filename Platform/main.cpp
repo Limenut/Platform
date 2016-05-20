@@ -3,6 +3,7 @@
 #include <iostream>
 #include <chrono>
 #include <vector>
+#include <cmath>
 
 #ifdef main
 #undef main
@@ -16,6 +17,32 @@ const int SCREEN_HEIGHT = 32*18;
 Window mainWindow;
 Tilemap gameMap;
 
+enum Direction
+{
+	NONE,
+	LEFT,
+	RIGHT,
+	UP,
+	DOWN
+};
+
+struct intVector
+{
+	int x;
+	int y;
+};
+
+struct doubleVector
+{
+	double x;
+	double y;
+};
+
+int min(int a, int b)
+{
+	return a < b ? a : b;
+}
+
 double min(double a, double b)
 {
 	return a < b ? a : b;
@@ -26,28 +53,6 @@ double max(double a, double b)
 	return a > b ? a : b;
 }
 
-enum Direction
-{
-	NONE,
-	LEFT,
-	RIGHT,
-	UP,
-	DOWN
-};
-
-struct doubleVector
-{
-	double x;
-	double y;
-};
-
-struct doubleBounds
-{
-	double left;
-	double right;
-	double up;
-	double down;
-};
 
 class Character
 {
@@ -55,6 +60,8 @@ public:
 	Character();
 	void move(double deltaTime);
 	void jump();
+	double scanDistance(double edge, const Tilemap& map, Direction direction, intVector firstTile, intVector lastTile);
+	double scanBoundary(Direction direction, const Tilemap& map);
 
 	doubleVector velocity;
 	double gravity;
@@ -66,7 +73,6 @@ public:
 	double terminalVelocity;
 	doubleVector position;
 	doubleVector origin;
-	doubleBounds bounds;
 
 	SDL_Rect rect;
 
@@ -88,10 +94,10 @@ Character::Character()
 	position.y = 0.0;
 	origin.x = 0.0;
 	origin.y = 0.0;
-	bounds.left = 0.0;
-	bounds.right = 0.0;
-	bounds.up = 0.0;
-	bounds.down = 0.0;
+	//bounds.left = 0.0;
+	//bounds.right = 0.0;
+	//bounds.up = 0.0;
+	//bounds.down = 0.0;
 	rect.x = 0;
 	rect.y = 0;
 	rect.w = 0;
@@ -102,39 +108,58 @@ Character::Character()
 
 void Character::move(double deltaTime)
 {
-	if (airBorne)
+	////////////////Y_AXIS///////////////////////////
+	double downBound = scanBoundary(DOWN, gameMap);
+
+	
+	if (!airBorne)	//grounded
 	{
-		if (freeFall && velocity.y < terminalVelocity)
+		if (downBound > 0.0001)	//fall through
+		{
+			airBorne = true;
+			freeFall = true;
+		}
+	}
+
+	if (airBorne)	//airborne
+	{
+		if (freeFall && velocity.y < terminalVelocity)	//gravity
 		{
 			velocity.y = min(velocity.y + gravity * deltaTime, terminalVelocity);
 		}
 
-		if (velocity.y < 0.0)	//rise
-		{
-			position.y += max(velocity.y * deltaTime, -bounds.up);
-
-			jumpHeight -= velocity.y * deltaTime;
-
-			if (jumpHeight >= jumpHeightMax)	//max jump
+		if (velocity.y < 0.0)	//rising
+		{		
+			if (!freeFall)	//actively jumping
 			{
-				position.y += jumpHeight - jumpHeightMax;
 
-				jumpHeight = 0.0;
-				freeFall = true;
-			}
-			else if (bounds.up < 0.0001) //hit ceiling
+				if (jumpHeight >= jumpHeightMax)	//max jump
+				{
+					position.y += jumpHeight - jumpHeightMax;
+					jumpHeight = 0.0;
+					freeFall = true;
+				}
+
+				jumpHeight -= velocity.y * deltaTime;
+			}	
+
+			double upBound = scanBoundary(UP, gameMap);
+			position.y += max(velocity.y * deltaTime, -upBound);
+
+			upBound = scanBoundary(UP, gameMap);
+			if (upBound < 0.0001) //hit ceiling
 			{
 				jumpHeight = 0.0;
 				freeFall = true;
 				velocity.y = 0.0;
 			}
 		}
-		else //fall
+		else //falling
 		{
-			position.y += min(velocity.y * deltaTime, bounds.down);
+			position.y += min(velocity.y * deltaTime, downBound);
 
 			//landing
-			if (bounds.down < 0.0001)
+			if (downBound < 0.0001)
 			{
 				jumpHeight = 0.0;
 				airBorne = false;
@@ -143,24 +168,20 @@ void Character::move(double deltaTime)
 			}
 		}
 	}
-	else if (bounds.down > 0.0001)	//fall through
-	{
-		airBorne = true;
-		freeFall = true;
-	}
 
+	rect.y = int(position.y - origin.y); //truncation is fine
+
+	///////////////////////X-Axis//////////////////////////
 	if (velocity.x < 0.0)
 	{
-		position.x += max(velocity.x * deltaTime, -bounds.left);
+		position.x += max(velocity.x * deltaTime, -scanBoundary(LEFT, gameMap));
 	}
 	else if (velocity.x > 0.0)
 	{
-		position.x += min(velocity.x * deltaTime, bounds.right);
+		position.x += min(velocity.x * deltaTime, scanBoundary(RIGHT, gameMap));
 	}
 
-	rect.x = int(position.x - origin.x + 0.5);
-	//rect.y = SCREEN_HEIGHT - int(position.y - origin.y + 0.5); //invert y-axis for rendering
-	rect.y = int(position.y - origin.y + 0.5);
+	rect.x = int(position.x - origin.x);
 }
 
 void Character::jump()
@@ -169,6 +190,111 @@ void Character::jump()
 	velocity.y = -jumpVelocity;
 }
 
+double Character::scanDistance(double edge, const Tilemap& map, Direction direction, intVector firstTile, intVector lastTile)
+{
+	double distance;
+
+	//indices of tile to be checked
+	int xi;
+	int yi;
+
+	//to keep track of smallest value
+	int minDist = 1000000;
+	int distIndex;
+
+	//for each occupied tile, shoot a ray in desired direction
+	//insert smallest value in distance
+	for (int i = firstTile.y; i <= lastTile.y; i++)
+	{
+		for (int j = firstTile.x; j <= lastTile.x; j++)
+		{
+			yi = i;
+			xi = j;
+			distIndex = 0;
+
+			while (
+				distIndex < minDist
+				&& xi >= 0
+				&& yi >= 0
+				&& xi < map.horiTiles
+				&& yi < map.vertiTiles
+				&& map.getTile(xi, yi) != 1
+				)
+			{
+
+				switch (direction)
+				{
+				case LEFT:	xi--;	break;
+				case RIGHT:	xi++;	break;
+				case UP:	yi--;	break;
+				case DOWN:	yi++;	break;
+				}
+				distIndex++;
+			}
+			minDist = min(minDist, distIndex);
+		}
+	}
+
+	switch (direction)
+	{
+	case LEFT:	distance = edge - (xi + 1)*map.tileRes;	break;
+	case RIGHT:	distance = xi*map.tileRes - edge;		break;
+	case UP:	distance = edge - (yi + 1)*map.tileRes;	break;
+	case DOWN:	distance = yi*map.tileRes - edge;		break;
+	}
+
+	return signbit(distance) ? 0.0 : distance;
+}
+
+double Character::scanBoundary(Direction direction, const Tilemap& map)
+{
+	//scanner's shape is simplified: find every tile which scanner's hitbox overlaps with
+	//get the first and last indices of these tiles in both axes
+	int x1 = rect.x / map.tileRes;
+	int x2 = (rect.x + rect.w - 1) / map.tileRes;
+	int y1 = rect.y / map.tileRes;
+	int y2 = (rect.y + rect.h - 1) / map.tileRes;
+
+	intVector tile1;
+	intVector tile2;
+
+	double edge; //position of the relevant edge of the hitbox
+	switch (direction)
+	{
+	case LEFT:
+	{
+		edge = position.x - origin.x;
+		tile1 = { x1,y1 };
+		tile2 = { x1,y2 };
+		break;
+	}
+	case RIGHT:
+	{
+		edge = position.x - origin.x + rect.w;
+		tile1 = { x2,y1 };
+		tile2 = { x2,y2 };
+		break;
+	}
+	case UP:
+	{
+		edge = position.y - origin.y;
+		tile1 = { x1,y1 };
+		tile2 = { x2,y1 };
+		break;
+	}
+	case DOWN:
+	{
+		edge = position.y - origin.y + rect.h;
+		tile1 = { x1,y2 };
+		tile2 = { x2,y2 };
+		break;
+	}
+	default: return 0.0;
+	}
+
+	//get maximum distance scanner can travel direction
+	return scanDistance(edge, map, direction, tile1, tile2);
+}
 
 
 bool init()
@@ -205,55 +331,22 @@ void close()
 	SDL_Quit();
 }
 
-double scanDistance(doubleVector pos, Direction direction, const Tilemap& map)
+bool checkMapCollision(Character& scanner, const Tilemap& map)
 {
-	double distance;
+	int x1 = scanner.rect.x / map.tileRes;
+	int x2 = (scanner.rect.x + scanner.rect.w - 1) / map.tileRes;
+	int y1 = scanner.rect.y / map.tileRes;
+	int y2 = (scanner.rect.y + scanner.rect.h - 1) / map.tileRes;
 
-	int xi = int((pos.x / map.tileRes) - 0.01);
-	int yi = int((pos.y / map.tileRes) - 0.01);
-	while (
-		xi >= 0 
-		&& yi >= 0
-		&& xi < map.horiTiles
-		&& yi < map.vertiTiles
-		&& map.getTile(xi, yi) != 1
-		)
+	for (int x = x1; x <= x2; x++)
 	{
-		switch (direction)
+		for (int y = y1; y <= y2; y++)
 		{
-		case LEFT:	xi--;	break;
-		case RIGHT:	xi++;	break;
-		case UP:	yi--;	break;
-		case DOWN:	yi++;	break;
+			if (x < 0 || x >= map.horiTiles || y < 0 || y >= map.vertiTiles) continue;
+			if (map.getTile(x, y) == 1) return true;
 		}
-		
 	}
-
-	switch (direction)
-	{
-	case LEFT:	distance = pos.x - (xi+1)*map.tileRes;	break;
-	case RIGHT:	distance = xi*map.tileRes - pos.x;		break;
-	case UP:	distance = pos.y - (yi+1)*map.tileRes;	break;
-	case DOWN:	distance = yi*map.tileRes - pos.y;		break;
-	}
-	
-	return max(distance, 0.0);
-}
-
-void scanBoundaries(Character& scanner, const Tilemap& map)
-{
-	//topleft, topright, bottomleft, bottomright
-	doubleVector tl, tr, bl, br;
-
-	tl.x = bl.x = scanner.position.x - scanner.origin.x;					//left
-	tr.x = br.x = scanner.position.x - scanner.origin.x + scanner.rect.w;	//right
-	tl.y = tr.y = scanner.position.y - scanner.origin.y;					//top
-	bl.y = br.y = scanner.position.y - scanner.origin.y + scanner.rect.h;	//bottom
-	
-	scanner.bounds.left = min(scanDistance(tl, LEFT, map), scanDistance(bl, LEFT, map));
-	scanner.bounds.right = min(scanDistance(tr, RIGHT, map), scanDistance(br, RIGHT, map));
-	scanner.bounds.up = min(scanDistance(tl, UP, map), scanDistance(tr, UP, map));
-	scanner.bounds.down = min(scanDistance(bl, DOWN, map), scanDistance(br, DOWN, map));
+	return false;
 }
 
 int main()
@@ -276,8 +369,8 @@ int main()
 
 	Player.rect.w = 32;
 	Player.rect.h = 64;
-	Player.rect.x = int(Player.position.x + 0.5);
-	Player.rect.y = int(Player.position.y + 0.5);
+	Player.rect.x = int(Player.position.x);
+	Player.rect.y = int(Player.position.y);
 	Player.origin.x = (double)(Player.rect.w / 2);
 	Player.origin.y = (double)Player.rect.h;
 
@@ -357,7 +450,6 @@ int main()
 			Player.freeFall = true;
 		}
 
-		scanBoundaries(Player, gameMap);
 		Player.move(frameTime);
 
 	
@@ -367,11 +459,13 @@ int main()
 
 		gameMap.render(&mainWindow);
 
-		SDL_SetRenderDrawColor(mainWindow.ren, 255, 0, 0, 255);
+		if (checkMapCollision(Player, gameMap)) SDL_SetRenderDrawColor(mainWindow.ren, 0, 0, 255, 255);
+		else SDL_SetRenderDrawColor(mainWindow.ren, 255, 0, 0, 255);
+
 		SDL_RenderFillRect(mainWindow.ren, &Player.rect);
 		SDL_RenderPresent(mainWindow.ren);
 
-		SDL_Delay(1);
+		SDL_Delay(50);
 	}
 
 	close();
