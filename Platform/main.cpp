@@ -59,7 +59,7 @@ class Character
 public:
 	Character();
 	void move(double deltaTime);
-	void jump();
+	void jumpivate();
 	double scanDistance(double edge, const Tilemap& map, Direction direction, intVector firstTile, intVector lastTile);
 	double scanBoundary(Direction direction, const Tilemap& map);
 
@@ -68,8 +68,9 @@ public:
 	double runSpeed;
 	double airSpeed;
 	double jumpVelocity;
-	double jumpHeight;
-	double jumpHeightMax;
+	double jumpTimeMax;
+	double startHeight;
+	double startJumpVector;
 	double terminalVelocity;
 	doubleVector position;
 	doubleVector origin;
@@ -87,17 +88,13 @@ Character::Character()
 	gravity = 0.0;
 	runSpeed = 0.0;
 	jumpVelocity = 0.0;
-	jumpHeight = 0.0;
-	jumpHeightMax = 0.0;
+	startHeight = 0.0;
+	startJumpVector = 0.0;
 	terminalVelocity = 0.0;
 	position.x = 0.0;
 	position.y = 0.0;
 	origin.x = 0.0;
 	origin.y = 0.0;
-	//bounds.left = 0.0;
-	//bounds.right = 0.0;
-	//bounds.up = 0.0;
-	//bounds.down = 0.0;
 	rect.x = 0;
 	rect.y = 0;
 	rect.w = 0;
@@ -111,63 +108,63 @@ void Character::move(double deltaTime)
 	////////////////Y_AXIS///////////////////////////
 	double downBound = scanBoundary(DOWN, gameMap);
 
-	
 	if (!airBorne)	//grounded
 	{
-		if (downBound > 0.0001)	//fall through
+		if (downBound > 0.0)	//fall through
 		{
 			airBorne = true;
 			freeFall = true;
+			startHeight = position.y;
+			startJumpVector = 0.0;
 		}
 	}
 
 	if (airBorne)	//airborne
 	{
-		double heightVector = velocity.y * deltaTime;
-		if (velocity.y < 0.0)	//rising
-		{	
-			double upBound = scanBoundary(UP, gameMap);
-			
-				
-			if (!freeFall)	//actively jumping
-			{
+		double targetPos;
+		static double airTime = 0.0;
+		static double fallTime = 0.0;
 
-				if (jumpHeight >= jumpHeightMax)	//max jump
-				{
-					//heightVector = (jumpHeight - jumpHeightMax);
-					jumpHeight = 0.0;
-					freeFall = true;
-				}
-				else jumpHeight -= heightVector;
-			}	
-
-			if (-heightVector > upBound) //hit ceiling
+		airTime += deltaTime;
+		if (!freeFall)	//actively jump
+		{
+			if (airTime >= jumpTimeMax)	//max jump
 			{
-				position.y -= upBound;
-				jumpHeight = 0.0;
 				freeFall = true;
-				velocity.y = 0.0;
+				deltaTime = airTime - jumpTimeMax;	//freefall for the remaining time
 			}
-			else position.y += heightVector;
+			else targetPos = startHeight - startJumpVector*airTime;		
 		}
-		else //falling
+		if (freeFall)	//freefall
+		{	
+			fallTime += deltaTime;
+			targetPos = startHeight - startJumpVector*airTime + 0.5*gravity*fallTime*fallTime;
+		}
+		
+		
+		double upBound = scanBoundary(UP, gameMap);	
+		if (position.y - targetPos > upBound)	//hit ceiling
 		{
-			position.y += min(heightVector, downBound);
-
-			//landing
-			if (downBound < 0.0001)
-			{
-				jumpHeight = 0.0;
-				airBorne = false;
-				freeFall = false;
-				velocity.y = 0.0;
-			}
+			position.y -= upBound;
+			freeFall = true;
+			velocity.y = 0.0;
+			startHeight = position.y;
+			startJumpVector = 0.0;
+			airTime = 0.0;
+			fallTime = 0.0;
 		}
-
-		if (freeFall && velocity.y < terminalVelocity)	//gravity
+		else if (targetPos - position.y > downBound)	//landing
 		{
-			velocity.y = min(velocity.y + gravity * deltaTime, terminalVelocity);
+			position.y += downBound;
+			airBorne = false;
+			freeFall = false;
+			velocity.y = 0.0;
+			startHeight = position.y;
+			startJumpVector = 0.0;
+			airTime = 0.0;
+			fallTime = 0.0;
 		}
+		else position.y = targetPos;	//move without obstruction
 	}
 
 	rect.y = int(position.y - origin.y); //truncation is fine
@@ -185,10 +182,11 @@ void Character::move(double deltaTime)
 	rect.x = int(position.x - origin.x);
 }
 
-void Character::jump()
+void Character::jumpivate()
 {
 	airBorne = true;
-	velocity.y = -jumpVelocity;
+	//velocity.y = -jumpVelocity;
+	startJumpVector = jumpVelocity;
 }
 
 double Character::scanDistance(double edge, const Tilemap& map, Direction direction, intVector firstTile, intVector lastTile)
@@ -365,7 +363,7 @@ int main()
 	Player.gravity = 5000.0;
 	Player.runSpeed = 500.0;
 	Player.jumpVelocity = 800.0;
-	Player.jumpHeightMax = 128.0;
+	Player.jumpTimeMax = 0.2;
 	Player.terminalVelocity = 1024.0;
 
 	Player.rect.w = 32;
@@ -442,17 +440,21 @@ int main()
 			}
 		}
 
-		if (!Player.freeFall && (keystate[SDL_SCANCODE_UP] || keystate[SDL_SCANCODE_W]))
+		if (!Player.freeFall)
 		{
-			Player.jump();
-		}
-		else if (Player.airBorne)
-		{
-			Player.freeFall = true;
+			if ((keystate[SDL_SCANCODE_UP] || keystate[SDL_SCANCODE_W]))
+			{
+				Player.jumpivate();
+			}
+			else if (Player.airBorne)
+			{
+				Player.freeFall = true;
+			}
 		}
 
 		Player.move(frameTime);
 
+		//cout << duration_cast<microseconds>(system_clock::now() - lastTime).count() << "\t\t";
 	
 		//rendering block
 		SDL_SetRenderDrawColor(mainWindow.ren, 0, 0, 0, 255);
@@ -466,6 +468,7 @@ int main()
 		SDL_RenderFillRect(mainWindow.ren, &Player.rect);
 		SDL_RenderPresent(mainWindow.ren);
 
+		//cout << duration_cast<microseconds>(system_clock::now() - lastTime).count() << endl;
 		SDL_Delay(1);
 	}
 
