@@ -1,5 +1,5 @@
 #include "Window.h"
-#include "Tilemap.h"
+#include "Character.h"
 #include <iostream>
 #include <chrono>
 #include <vector>
@@ -16,288 +16,6 @@ const int SCREEN_WIDTH = 32*32;
 const int SCREEN_HEIGHT = 32*18;
 Window mainWindow;
 Tilemap gameMap;
-
-enum Direction
-{
-	NONE,
-	LEFT,
-	RIGHT,
-	UP,
-	DOWN
-};
-
-struct intVector
-{
-	int x;
-	int y;
-};
-
-struct doubleVector
-{
-	double x;
-	double y;
-};
-
-int min(int a, int b)
-{
-	return a < b ? a : b;
-}
-
-double min(double a, double b)
-{
-	return a < b ? a : b;
-}
-
-double max(double a, double b)
-{
-	return a > b ? a : b;
-}
-
-
-class Character
-{
-public:
-	Character();
-	void move(double deltaTime);
-	void jumpivate();
-	double scanDistance(double edge, const Tilemap& map, Direction direction, intVector firstTile, intVector lastTile);
-	double scanBoundary(Direction direction, const Tilemap& map);
-
-	doubleVector velocity;
-	double gravity;
-	double runSpeed;
-	double airSpeed;
-	double jumpVelocity;
-	double jumpTimeMax;
-	double startJumpVector;
-	double terminalVelocity;
-	doubleVector position;
-	doubleVector origin;
-
-	SDL_Rect rect;
-
-	bool airBorne;
-	bool freeFall;
-};
-
-Character::Character()
-{
-	velocity.x = 0.0;
-	velocity.y = 0.0;
-	gravity = 0.0;
-	runSpeed = 0.0;
-	jumpVelocity = 0.0;
-	startJumpVector = 0.0;
-	terminalVelocity = 0.0;
-	position.x = 0.0;
-	position.y = 0.0;
-	origin.x = 0.0;
-	origin.y = 0.0;
-	rect.x = 0;
-	rect.y = 0;
-	rect.w = 0;
-	rect.h = 0;
-	airBorne = false;
-	freeFall = false;
-}
-
-void Character::move(double deltaTime)
-{
-	////////////////Y_AXIS///////////////////////////
-	static double startHeight = 0.0;
-	double downBound = scanBoundary(DOWN, gameMap);
-
-	if (!airBorne)	//grounded
-	{
-		if (downBound > 0.0)	//fall through
-		{
-			airBorne = true;
-			freeFall = true;
-		}
-	}
-
-	if (airBorne)	//airborne
-	{
-		double targetPos;
-		static double airTime = 0.0;
-		static double fallTime = 0.0;
-
-		airTime += deltaTime;
-		if (!freeFall)	//actively jump
-		{
-			if (airTime >= jumpTimeMax)	//max jump
-			{
-				freeFall = true;
-				deltaTime = airTime - jumpTimeMax;	//freefall for the remaining time
-			}
-			else targetPos = startHeight - jumpVelocity*airTime;		
-		}
-
-		if (freeFall)	//freefall
-		{	
-			fallTime += deltaTime;
-			targetPos = startHeight - startJumpVector*airTime + 0.5*gravity*fallTime*fallTime;
-
-			if (targetPos - position.y > terminalVelocity*deltaTime)	//terminal velocity
-			{
-				targetPos = position.y + terminalVelocity*deltaTime;
-			}
-		}
-		
-		
-		double upBound = scanBoundary(UP, gameMap);	
-		if (position.y - targetPos > upBound)	//hit ceiling
-		{
-			position.y -= upBound;
-			freeFall = true;
-			velocity.y = 0.0;
-			startHeight = position.y;
-			startJumpVector = 0.0;
-			airTime = 0.0;
-			fallTime = 0.0;
-		}
-		else if (targetPos - position.y > downBound)	//landing
-		{
-			position.y += downBound;
-			airBorne = false;
-			freeFall = false;
-			velocity.y = 0.0;
-			startHeight = position.y;
-			startJumpVector = 0.0;
-			airTime = 0.0;
-			fallTime = 0.0;
-		}
-		else position.y = targetPos;	//move without obstruction
-
-		rect.y = int(position.y - origin.y); //truncation is fine
-	}
-
-	///////////////////////X-Axis//////////////////////////
-	if (velocity.x < 0.0)
-	{
-		position.x += max(velocity.x * deltaTime, -scanBoundary(LEFT, gameMap));
-		rect.x = int(position.x - origin.x);
-	}
-	else if (velocity.x > 0.0)
-	{
-		position.x += min(velocity.x * deltaTime, scanBoundary(RIGHT, gameMap));
-		rect.x = int(position.x - origin.x);
-	}
-}
-
-void Character::jumpivate()
-{
-	airBorne = true;
-	//velocity.y = -jumpVelocity;
-	startJumpVector = jumpVelocity;
-}
-
-double Character::scanDistance(double edge, const Tilemap& map, Direction direction, intVector firstTile, intVector lastTile)
-{
-	double distance;
-
-	//indices of tile to be checked
-	int xi;
-	int yi;
-
-	//to keep track of smallest value
-	int minDist = 1000000;
-	int distIndex;
-
-	//for each occupied tile, shoot a ray in desired direction
-	//insert smallest value in distance
-	for (int i = firstTile.y; i <= lastTile.y; i++)
-	{
-		for (int j = firstTile.x; j <= lastTile.x; j++)
-		{
-			yi = i;
-			xi = j;
-			distIndex = 0;
-
-			while (
-				distIndex < minDist
-				&& xi >= 0
-				&& yi >= 0
-				&& xi < map.horiTiles
-				&& yi < map.vertiTiles
-				&& map.getTile(xi, yi) != 1
-				)
-			{
-
-				switch (direction)
-				{
-				case LEFT:	xi--;	break;
-				case RIGHT:	xi++;	break;
-				case UP:	yi--;	break;
-				case DOWN:	yi++;	break;
-				}
-				distIndex++;
-			}
-			minDist = min(minDist, distIndex);
-		}
-	}
-
-	switch (direction)
-	{
-	case LEFT:	distance = edge - (xi + 1)*map.tileRes;	break;
-	case RIGHT:	distance = xi*map.tileRes - edge;		break;
-	case UP:	distance = edge - (yi + 1)*map.tileRes;	break;
-	case DOWN:	distance = yi*map.tileRes - edge;		break;
-	}
-
-	return signbit(distance) ? 0.0 : distance;
-}
-
-double Character::scanBoundary(Direction direction, const Tilemap& map)
-{
-	//scanner's shape is simplified: find every tile which scanner's hitbox overlaps with
-	//get the first and last indices of these tiles in both axes
-	int x1 = rect.x / map.tileRes;
-	int x2 = (rect.x + rect.w - 1) / map.tileRes;
-	int y1 = rect.y / map.tileRes;
-	int y2 = (rect.y + rect.h - 1) / map.tileRes;
-
-	intVector tile1;
-	intVector tile2;
-
-	double edge; //position of the relevant edge of the hitbox
-	switch (direction)
-	{
-	case LEFT:
-	{
-		edge = position.x - origin.x;
-		tile1 = { x1,y1 };
-		tile2 = { x1,y2 };
-		break;
-	}
-	case RIGHT:
-	{
-		edge = position.x - origin.x + rect.w;
-		tile1 = { x2,y1 };
-		tile2 = { x2,y2 };
-		break;
-	}
-	case UP:
-	{
-		edge = position.y - origin.y;
-		tile1 = { x1,y1 };
-		tile2 = { x2,y1 };
-		break;
-	}
-	case DOWN:
-	{
-		edge = position.y - origin.y + rect.h;
-		tile1 = { x1,y2 };
-		tile2 = { x2,y2 };
-		break;
-	}
-	default: return 0.0;
-	}
-
-	//get maximum distance scanner can travel direction
-	return scanDistance(edge, map, direction, tile1, tile2);
-}
-
 
 bool init()
 {
@@ -361,20 +79,21 @@ int main()
 	gameMap.update(&mainWindow);
 
 	Character Player;
-	Player.position.x = 100;
-	Player.position.y = SCREEN_HEIGHT - 90;
 	Player.gravity = 5000.0;
-	Player.runSpeed = 500.0;
-	Player.jumpVelocity = 800.0;
-	Player.jumpTimeMax = 0.2;
-	Player.terminalVelocity = 1024.0;
+	Player.runSpeed = 15*32;
+	Player.jumpVelocity = 25*32;
+	Player.jumpTimeMax = 0.14;
+	Player.terminalVelocity = 30*32;
+
+	//minjump = 0.5(jumpVelocity^2/gravity)	= 64 = 2 blocks
+	//maxjump = 0.5(jumpVelocity^2/gravity) + jumpVelocity*jumpTimeMax	= 176 = 5.5 blocks
 
 	Player.rect.w = 32;
 	Player.rect.h = 64;
-	Player.rect.x = int(Player.position.x);
-	Player.rect.y = int(Player.position.y);
 	Player.origin.x = (double)(Player.rect.w / 2);
 	Player.origin.y = (double)Player.rect.h;
+
+	Player.moveTo(48, SCREEN_HEIGHT - 32);
 
 	const Uint8 *keystate = SDL_GetKeyboardState(NULL);
 	SDL_Event e;
@@ -455,7 +174,7 @@ int main()
 			}
 		}
 
-		Player.move(frameTime);
+		Player.move(frameTime, gameMap);
 
 		//cout << duration_cast<microseconds>(system_clock::now() - lastTime).count() << "\t\t";
 	

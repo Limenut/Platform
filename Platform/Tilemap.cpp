@@ -158,3 +158,4 @@ char Tilemap::getTile(unsigned x, unsigned y) const
 {
 	return tiles[y*horiTiles + x];
 }
+
