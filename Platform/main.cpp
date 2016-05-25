@@ -69,7 +69,6 @@ public:
 	double airSpeed;
 	double jumpVelocity;
 	double jumpTimeMax;
-	double startHeight;
 	double startJumpVector;
 	double terminalVelocity;
 	doubleVector position;
@@ -88,7 +87,6 @@ Character::Character()
 	gravity = 0.0;
 	runSpeed = 0.0;
 	jumpVelocity = 0.0;
-	startHeight = 0.0;
 	startJumpVector = 0.0;
 	terminalVelocity = 0.0;
 	position.x = 0.0;
@@ -106,6 +104,7 @@ Character::Character()
 void Character::move(double deltaTime)
 {
 	////////////////Y_AXIS///////////////////////////
+	static double startHeight = 0.0;
 	double downBound = scanBoundary(DOWN, gameMap);
 
 	if (!airBorne)	//grounded
@@ -114,8 +113,6 @@ void Character::move(double deltaTime)
 		{
 			airBorne = true;
 			freeFall = true;
-			startHeight = position.y;
-			startJumpVector = 0.0;
 		}
 	}
 
@@ -133,12 +130,18 @@ void Character::move(double deltaTime)
 				freeFall = true;
 				deltaTime = airTime - jumpTimeMax;	//freefall for the remaining time
 			}
-			else targetPos = startHeight - startJumpVector*airTime;		
+			else targetPos = startHeight - jumpVelocity*airTime;		
 		}
+
 		if (freeFall)	//freefall
 		{	
 			fallTime += deltaTime;
 			targetPos = startHeight - startJumpVector*airTime + 0.5*gravity*fallTime*fallTime;
+
+			if (targetPos - position.y > terminalVelocity*deltaTime)	//terminal velocity
+			{
+				targetPos = position.y + terminalVelocity*deltaTime;
+			}
 		}
 		
 		
@@ -165,21 +168,21 @@ void Character::move(double deltaTime)
 			fallTime = 0.0;
 		}
 		else position.y = targetPos;	//move without obstruction
-	}
 
-	rect.y = int(position.y - origin.y); //truncation is fine
+		rect.y = int(position.y - origin.y); //truncation is fine
+	}
 
 	///////////////////////X-Axis//////////////////////////
 	if (velocity.x < 0.0)
 	{
 		position.x += max(velocity.x * deltaTime, -scanBoundary(LEFT, gameMap));
+		rect.x = int(position.x - origin.x);
 	}
 	else if (velocity.x > 0.0)
 	{
 		position.x += min(velocity.x * deltaTime, scanBoundary(RIGHT, gameMap));
+		rect.x = int(position.x - origin.x);
 	}
-
-	rect.x = int(position.x - origin.x);
 }
 
 void Character::jumpivate()
