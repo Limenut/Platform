@@ -173,50 +173,11 @@ int main()
 			}
 		}
 
-		Player.move(frameTime, gameMap);
-
-
-		mainWindow.offsetX = (SCREEN_WIDTH/2) -(int)Player.position.x;
-		
-
-		int target = (SCREEN_HEIGHT / 2) - (int)Player.position.y;
-		if (mainWindow.offsetY < target - 100)
+		if (Player.move(frameTime, gameMap))
 		{
-			mainWindow.offsetY = target - 100;
+			mainWindow.follow((int)Player.position.x, (int)Player.position.y, gameMap.horiTiles*gameMap.tileRes, gameMap.vertiTiles*gameMap.tileRes);
+			gameMap.update(&mainWindow);
 		}
-		else if (mainWindow.offsetY > target + 100)
-		{
-			mainWindow.offsetY = target + 100;
-		}
-
-		if (mainWindow.offsetX > 0)
-		{
-			mainWindow.offsetX = 0;
-		}
-		else if (mainWindow.offsetX < -(gameMap.horiTiles*gameMap.tileRes - SCREEN_WIDTH))
-		{
-			mainWindow.offsetX = -(gameMap.horiTiles*gameMap.tileRes - SCREEN_WIDTH);
-		}
-
-		if (mainWindow.offsetY > 0)
-		{
-			mainWindow.offsetY = 0;
-		}
-		else if (mainWindow.offsetY < -(gameMap.vertiTiles*gameMap.tileRes - SCREEN_HEIGHT))
-		{
-			mainWindow.offsetY = -(gameMap.vertiTiles*gameMap.tileRes - SCREEN_HEIGHT);
-		}
-
-		/*if (mainWindow.offsetY != (SCREEN_HEIGHT / 2) - (int)Player.position.y)
-		{
-			double target1 = double(SCREEN_HEIGHT / 2) - Player.position.y - (double)mainWindow.offsetY;
-			double target2 = target1*frameTime*5.0;
-			mainWindow.offsetY += int(abs(target1) < abs(target2) ? target1 : target2);
-		}*/
-
-		gameMap.update(&mainWindow);
-
-		//cout << duration_cast<microseconds>(system_clock::now() - lastTime).count() << "\t\t";
 	
 		//rendering block
 		SDL_SetRenderDrawColor(mainWindow.ren, 0, 0, 0, 255);
@@ -230,7 +191,6 @@ int main()
 		Player.render(mainWindow);
 		SDL_RenderPresent(mainWindow.ren);
 
-		//cout << duration_cast<microseconds>(system_clock::now() - lastTime).count() << endl;
 		SDL_Delay(1);
 	}
 

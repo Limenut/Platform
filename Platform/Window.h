@@ -13,8 +13,8 @@ public:
 	Window();
 	~Window();
 	bool init(const string &_title, int _width, int _height);
-
 	void handleEvents(SDL_Event *e);
+	void follow(int x, int y, int mapWidth, int mapHeight);
 
 	string title;
 	Uint32 id;

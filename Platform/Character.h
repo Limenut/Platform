@@ -27,7 +27,7 @@ class Character
 {
 public:
 	Character();
-	void move(double deltaTime, const Tilemap& map);
+	bool move(double deltaTime, const Tilemap& map);	//returns: whether character's rectangle has moved
 	void moveTo(double x, double y);
 	void jumpivate();
 	double scanDistance(double edge, const Tilemap& map, Direction direction, intVector firstTile, intVector lastTile);

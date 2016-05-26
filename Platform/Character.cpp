@@ -27,8 +27,9 @@ Character::Character()
 	freeFall = false;
 }
 
-void Character::move(double deltaTime, const Tilemap& map)
+bool Character::move(double deltaTime, const Tilemap& map)
 {
+	bool moved = false;
 	////////////////Y_AXIS///////////////////////////
 	static double startHeight = position.y;
 	double downBound = scanBoundary(DOWN, map);
@@ -93,20 +94,34 @@ void Character::move(double deltaTime, const Tilemap& map)
 		}
 		else position.y = targetPos;	//move without obstruction
 
-		rect.y = int(position.y - origin.y); //truncation is fine
+		if (rect.y != int(position.y - origin.y))
+		{
+			rect.y = int(position.y - origin.y);  //truncation is fine
+			moved = true;
+		}
+		
 	}
 
 	///////////////////////X-Axis//////////////////////////
 	if (velocity.x < 0.0)
 	{
 		position.x += fmax(velocity.x * deltaTime, -scanBoundary(LEFT, map));
-		rect.x = int(position.x - origin.x);
+		if (rect.x != int(position.x - origin.x))
+		{
+			rect.x = int(position.x - origin.x);
+			moved = true;
+		}
 	}
 	else if (velocity.x > 0.0)
 	{
 		position.x += fmin(velocity.x * deltaTime, scanBoundary(RIGHT, map));
-		rect.x = int(position.x - origin.x);
+		if (rect.x != int(position.x - origin.x))
+		{
+			rect.x = int(position.x - origin.x);
+			moved = true;
+		}
 	}
+	return moved;
 }
 
 void Character::moveTo(double x, double y)
@@ -233,8 +248,8 @@ double Character::scanBoundary(Direction direction, const Tilemap& map)
 void Character::render(const Window& window)
 {
 	SDL_Rect renderRect;
-	renderRect.x = rect.x + window.offsetX;
-	renderRect.y = rect.y + window.offsetY;
+	renderRect.x = rect.x - window.offsetX;
+	renderRect.y = rect.y - window.offsetY;
 	renderRect.w = rect.w;
 	renderRect.h = rect.h;
 

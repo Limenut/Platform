@@ -77,3 +77,55 @@ void Window::handleEvents(SDL_Event *e)
 		break;
 	}
 }
+
+void Window::follow(int x, int y, int mapWidth, int mapHeight)
+{
+	static const int safeMargin = 128;
+
+	int targetX = x - (area.w / 2);
+	int targetY = y - (area.h / 2);
+
+	int bound;
+
+	bound = targetX - safeMargin;
+	if (offsetX < bound)
+	{
+		offsetX = bound;
+	}
+	else
+	{
+		bound = targetX + safeMargin;
+		offsetX = offsetX < bound ? offsetX : bound;
+	}
+
+	bound = targetY - safeMargin;
+	if (offsetY < bound)
+	{
+		offsetY = bound;
+	}
+	else
+	{
+		bound = targetY + safeMargin;
+		offsetY = offsetY < bound ? offsetY : bound;
+	}
+
+	if (offsetX < 0)
+	{
+		offsetX = 0;
+	}
+	else
+	{
+		bound = mapWidth - area.w;
+		offsetX = offsetX < bound ? offsetX : bound;
+	}
+
+	if (offsetY < 0)
+	{
+		offsetY = 0;
+	}
+	else
+	{
+		bound = mapHeight - area.h;
+		offsetY = offsetY < bound ? offsetY : bound;
+	}
+}
