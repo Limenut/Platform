@@ -32,6 +32,7 @@ public:
 	void jumpivate();
 	double scanDistance(double edge, const Tilemap& map, Direction direction, intVector firstTile, intVector lastTile);
 	double scanBoundary(Direction direction, const Tilemap& map);
+	void render(const Window& window);
 
 	doubleVector velocity;
 	double gravity;

@@ -3,7 +3,6 @@
 #include <iostream>
 #include <chrono>
 #include <vector>
-#include <cmath>
 
 #ifdef main
 #undef main
@@ -75,7 +74,7 @@ int main()
 
 	Spritesheet levelSprites("testpic.png", 32, &mainWindow);
 	gameMap.sprites = &levelSprites;
-	gameMap.loadFile("testmap.map");
+	gameMap.loadFile("tornila.map");
 	gameMap.update(&mainWindow);
 
 	Character Player;
@@ -93,7 +92,7 @@ int main()
 	Player.origin.x = (double)(Player.rect.w / 2);
 	Player.origin.y = (double)Player.rect.h;
 
-	Player.moveTo(48, SCREEN_HEIGHT - 32);
+	Player.moveTo(112, SCREEN_HEIGHT - 128);
 
 	const Uint8 *keystate = SDL_GetKeyboardState(NULL);
 	SDL_Event e;
@@ -176,6 +175,27 @@ int main()
 
 		Player.move(frameTime, gameMap);
 
+		mainWindow.offsetX = (SCREEN_WIDTH/2) -(int)Player.position.x;
+
+		int target = (SCREEN_HEIGHT / 2) - (int)Player.position.y;
+		if (mainWindow.offsetY < target - 100)
+		{
+			mainWindow.offsetY = target - 100;
+		}
+		else if (mainWindow.offsetY > target + 100)
+		{
+			mainWindow.offsetY = target + 100;
+		}
+
+		/*if (mainWindow.offsetY != (SCREEN_HEIGHT / 2) - (int)Player.position.y)
+		{
+			double target1 = double(SCREEN_HEIGHT / 2) - Player.position.y - (double)mainWindow.offsetY;
+			double target2 = target1*frameTime*5.0;
+			mainWindow.offsetY += int(abs(target1) < abs(target2) ? target1 : target2);
+		}*/
+
+		gameMap.update(&mainWindow);
+
 		//cout << duration_cast<microseconds>(system_clock::now() - lastTime).count() << "\t\t";
 	
 		//rendering block
@@ -187,7 +207,7 @@ int main()
 		if (checkMapCollision(Player, gameMap)) SDL_SetRenderDrawColor(mainWindow.ren, 0, 0, 255, 255);
 		else SDL_SetRenderDrawColor(mainWindow.ren, 255, 0, 0, 255);
 
-		SDL_RenderFillRect(mainWindow.ren, &Player.rect);
+		Player.render(mainWindow);
 		SDL_RenderPresent(mainWindow.ren);
 
 		//cout << duration_cast<microseconds>(system_clock::now() - lastTime).count() << endl;

@@ -229,3 +229,14 @@ double Character::scanBoundary(Direction direction, const Tilemap& map)
 	//get maximum distance scanner can travel direction
 	return scanDistance(edge, map, direction, tile1, tile2);
 }
+
+void Character::render(const Window& window)
+{
+	SDL_Rect renderRect;
+	renderRect.x = rect.x + window.offsetX;
+	renderRect.y = rect.y + window.offsetY;
+	renderRect.w = rect.w;
+	renderRect.h = rect.h;
+
+	SDL_RenderFillRect(window.ren, &renderRect);
+}

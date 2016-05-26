@@ -86,14 +86,14 @@ void Tilemap::update(Window *window)
 	SDL_RenderClear(window->ren);
 
 	//copy tiles to texture according to window offset
-	for (int i = 0; i < window->area.h / tileRes; i++)
+	for (int i = 0; i <= window->area.h / tileRes; i++)
 	{
-		int y = i + window->offsetY;
+		int y = i - (window->offsetY/tileRes);
 		if (y < 0 || y >= vertiTiles) continue;
-		for (int j = 0; j < window->area.w / tileRes; j++)
+		for (int j = 0; j <= window->area.w / tileRes; j++)
 		{
 			
-			int x = j + window->offsetX;
+			int x = j - (window->offsetX/tileRes);
 			if (x < 0 || x >= horiTiles) continue;
 
 			int in = y*horiTiles + x;
@@ -102,8 +102,8 @@ void Tilemap::update(Window *window)
 			tex = sprites->frames[tiles[in]];
 
 			SDL_Rect rect;
-			rect.y = i*tileRes;
-			rect.x = j*tileRes;
+			rect.y = i*tileRes + window->offsetY%tileRes;
+			rect.x = j*tileRes + window->offsetX%tileRes;
 			rect.w = rect.h = tileRes;
 			SDL_RenderCopy(window->ren, tex, NULL, &rect);
 		}
