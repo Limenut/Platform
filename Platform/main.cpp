@@ -77,9 +77,11 @@ int main()
 	gameMap.loadFile("tornila.map");
 	gameMap.update(&mainWindow);
 
+	
+
 	Character Player;
 	Player.gravity = 5000.0;
-	Player.runSpeed = 15*32;
+	Player.runSpeed = 10*32;
 	Player.jumpVelocity = 25*32;
 	Player.jumpTimeMax = 0.14;
 	Player.terminalVelocity = 30*32;
@@ -93,6 +95,17 @@ int main()
 	Player.origin.y = (double)Player.rect.h;
 
 	Player.moveTo(112, SCREEN_HEIGHT - 128);
+
+	Spritesheet playerSprites("run.png", 32, &mainWindow);
+	Animation runAnim;
+	runAnim.startFrame = 0;
+	runAnim.endFrame = 7;
+	runAnim.frameDelay = 0.02;
+	Player.sprites = &playerSprites;
+	Player.anims[MOVE] = runAnim;
+	Player.currentAnim = &runAnim;
+
+
 
 	const Uint8 *keystate = SDL_GetKeyboardState(NULL);
 	SDL_Event e;
@@ -178,6 +191,7 @@ int main()
 			mainWindow.follow((int)Player.position.x, (int)Player.position.y, gameMap.horiTiles*gameMap.tileRes, gameMap.vertiTiles*gameMap.tileRes);
 			gameMap.update(&mainWindow);
 		}
+		Player.animate(frameTime);
 	
 		//rendering block
 		SDL_SetRenderDrawColor(mainWindow.ren, 0, 0, 0, 255);

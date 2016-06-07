@@ -8,6 +8,8 @@ int min(int a, int b)
 
 Character::Character()
 {
+	currentFrame = 0;
+	frameCounter = 0.0;
 	velocity.x = 0.0;
 	velocity.y = 0.0;
 	gravity = 0.0;
@@ -253,5 +255,18 @@ void Character::render(const Window& window)
 	renderRect.w = rect.w;
 	renderRect.h = rect.h;
 
-	SDL_RenderFillRect(window.ren, &renderRect);
+	//SDL_RenderFillRect(window.ren, &renderRect);
+	//rc.h = rc.w = sprites->tileRes;
+
+	if (currentFrame < sprites->frames.size())
+	{
+		SDL_RenderCopy(window.ren, sprites->frames[currentFrame], NULL, &renderRect);
+	}
+}
+
+void Character::animate(double deltaTime)
+{
+	if (currentAnim == nullptr) return;
+	else currentFrame = currentAnim->animate(deltaTime, currentFrame, frameCounter);
+	
 }

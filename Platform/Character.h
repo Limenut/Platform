@@ -1,6 +1,9 @@
 #pragma once
 
 #include "Tilemap.h"
+#include "Spritesheet.h"
+#include "Animation.h"
+#include <map>
 
 enum Direction
 {
@@ -9,6 +12,14 @@ enum Direction
 	RIGHT,
 	UP,
 	DOWN
+};
+
+enum AnimState
+{
+	NO_ANIMATION,
+	IDLE,
+	MOVE,
+	JUMP
 };
 
 struct intVector
@@ -33,6 +44,13 @@ public:
 	double scanDistance(double edge, const Tilemap& map, Direction direction, intVector firstTile, intVector lastTile);
 	double scanBoundary(Direction direction, const Tilemap& map);
 	void render(const Window& window);
+	void animate(double deltaTime);
+
+	Spritesheet* sprites;
+	std::map<AnimState, Animation> anims;
+	Animation *currentAnim;
+	unsigned currentFrame;
+	double frameCounter;
 
 	doubleVector velocity;
 	double gravity;
