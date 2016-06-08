@@ -98,10 +98,11 @@ int main()
 
 	Spritesheet playerSprites("runnyB.png", 32, &mainWindow);
 	Player.sprites = &playerSprites;
-	Player.anims[IDLE] = Animation(6, 6, 0.0);
-	Player.anims[MOVE] = Animation(0, 7, 0.0125);
-	Player.anims[JUMP] = Animation(5, 5, 0.0);
-	Player.anims[FALL] = Animation(2, 2, 0.0);
+
+	Player.anims[IDLE] = Animation(6, 0, 0.0);
+	Player.anims[MOVE] = Animation(0, 8, 0.0125);
+	Player.anims[JUMP] = Animation(5, 0, 0.0);
+	Player.anims[FALL] = Animation(2, 0, 0.0);
 	Player.changeAnim(IDLE);
 
 

@@ -5,7 +5,7 @@ class Animation
 {
 public:
 	Animation();
-	Animation(unsigned start, unsigned end, double delay);
+	Animation(unsigned start, unsigned count, double delay);
 	unsigned animate(double deltaTime, unsigned currentFrame, double &counter);
 
 	unsigned startFrame;
