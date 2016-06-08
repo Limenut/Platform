@@ -16,10 +16,10 @@ enum Direction
 
 enum AnimState
 {
-	NO_ANIMATION,
 	IDLE,
 	MOVE,
-	JUMP
+	JUMP,
+	FALL
 };
 
 struct intVector
@@ -45,12 +45,15 @@ public:
 	double scanBoundary(Direction direction, const Tilemap& map);
 	void render(const Window& window);
 	void animate(double deltaTime);
+	void changeAnim(AnimState state);
 
 	Spritesheet* sprites;
 	std::map<AnimState, Animation> anims;
 	Animation *currentAnim;
+	AnimState currentState;
 	unsigned currentFrame;
 	double frameCounter;
+	bool facingRight;
 
 	doubleVector velocity;
 	double gravity;

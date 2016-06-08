@@ -10,6 +10,9 @@ Character::Character()
 {
 	currentFrame = 0;
 	frameCounter = 0.0;
+	facingRight = true;
+	currentState = IDLE;
+	currentAnim = nullptr;
 	velocity.x = 0.0;
 	velocity.y = 0.0;
 	gravity = 0.0;
@@ -31,7 +34,7 @@ Character::Character()
 
 bool Character::move(double deltaTime, const Tilemap& map)
 {
-	bool moved = false;
+	bool moved = false;	//character has moved a whole pixel *clapclap*
 	////////////////Y_AXIS///////////////////////////
 	static double startHeight = position.y;
 	double downBound = scanBoundary(DOWN, map);
@@ -42,6 +45,7 @@ bool Character::move(double deltaTime, const Tilemap& map)
 		{
 			airBorne = true;
 			freeFall = true;
+			changeAnim(FALL);
 		}
 	}
 
@@ -75,26 +79,47 @@ bool Character::move(double deltaTime, const Tilemap& map)
 
 
 		double upBound = scanBoundary(UP, map);
-		if (position.y - targetPos > upBound)	//hit ceiling
-		{
-			position.y -= upBound;
-			freeFall = true;
-			startHeight = position.y;
-			startJumpVector = 0.0;
-			airTime = 0.0;
-			fallTime = 0.0;
+
+		double dist = targetPos - position.y;
+
+		if (dist < 0)
+		{	
+			if (-dist > upBound)	//hit ceiling
+			{
+				position.y -= upBound;
+				freeFall = true;
+				startHeight = position.y;
+				startJumpVector = 0.0;
+				airTime = 0.0;
+				fallTime = 0.0;
+				changeAnim(FALL);
+			}
+			else
+			{
+				position.y = targetPos;
+				changeAnim(JUMP);
+			}
 		}
-		else if (targetPos - position.y > downBound)	//landing
+		else
 		{
-			position.y += downBound;
-			airBorne = false;
-			freeFall = false;
-			startHeight = position.y;
-			startJumpVector = 0.0;
-			airTime = 0.0;
-			fallTime = 0.0;
+			if (targetPos - position.y > downBound)	//landing
+			{
+				position.y += downBound;
+				airBorne = false;
+				freeFall = false;
+				startHeight = position.y;
+				startJumpVector = 0.0;
+				airTime = 0.0;
+				fallTime = 0.0;
+				changeAnim(IDLE);
+			}
+			else
+			{
+				position.y = targetPos;
+				changeAnim(FALL);
+			}
 		}
-		else position.y = targetPos;	//move without obstruction
+		
 
 		if (rect.y != int(position.y - origin.y))
 		{
@@ -105,24 +130,40 @@ bool Character::move(double deltaTime, const Tilemap& map)
 	}
 
 	///////////////////////X-Axis//////////////////////////
+	int targetDist;
 	if (velocity.x < 0.0)
 	{
+		facingRight = false;
 		position.x += fmax(velocity.x * deltaTime, -scanBoundary(LEFT, map));
 		if (rect.x != int(position.x - origin.x))
 		{
 			rect.x = int(position.x - origin.x);
 			moved = true;
 		}
+		if (currentState == IDLE)
+		{
+			changeAnim(MOVE);
+		}
 	}
 	else if (velocity.x > 0.0)
 	{
+		facingRight = true;
 		position.x += fmin(velocity.x * deltaTime, scanBoundary(RIGHT, map));
 		if (rect.x != int(position.x - origin.x))
 		{
 			rect.x = int(position.x - origin.x);
 			moved = true;
 		}
+		if (currentState == IDLE)
+		{
+			changeAnim(MOVE);
+		}
 	}
+	else if (!airBorne)
+	{
+		changeAnim(IDLE);
+	}
+
 	return moved;
 }
 
@@ -139,6 +180,7 @@ void Character::jumpivate()
 	airBorne = true;
 	//velocity.y = -jumpVelocity;
 	startJumpVector = jumpVelocity;
+	changeAnim(JUMP);
 }
 
 double Character::scanDistance(double edge, const Tilemap& map, Direction direction, intVector firstTile, intVector lastTile)
@@ -260,7 +302,14 @@ void Character::render(const Window& window)
 
 	if (currentFrame < sprites->frames.size())
 	{
-		SDL_RenderCopy(window.ren, sprites->frames[currentFrame], NULL, &renderRect);
+		if (facingRight)
+		{
+			SDL_RenderCopy(window.ren, sprites->frames[currentFrame], NULL, &renderRect);
+		}
+		else
+		{
+			SDL_RenderCopyEx(window.ren, sprites->frames[currentFrame], NULL, &renderRect, NULL, NULL, SDL_FLIP_HORIZONTAL);
+		}
 	}
 }
 
@@ -269,4 +318,15 @@ void Character::animate(double deltaTime)
 	if (currentAnim == nullptr) return;
 	else currentFrame = currentAnim->animate(deltaTime, currentFrame, frameCounter);
 	
+}
+
+void Character::changeAnim(AnimState state)
+{
+	if (state == currentState) return;
+	if (!anims.count(state)) return; //animation not found
+	currentState = state;
+	currentAnim = &anims[state];
+
+	currentFrame = currentAnim->startFrame;
+	frameCounter = 0.0;
 }

@@ -13,6 +13,15 @@ Animation::Animation()
 	frameDelay = 0.1;
 }
 
+Animation::Animation(unsigned start, unsigned end, double delay) : Animation()
+{
+	startFrame = start;
+	endFrame = end;
+	frameDelay = delay;
+
+	if (endFrame <= startFrame) running = false;
+}
+
 unsigned Animation::animate(double deltaTime, unsigned currentFrame, double &counter)
 {
 	if (!running) return currentFrame;

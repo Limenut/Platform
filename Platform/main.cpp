@@ -96,14 +96,13 @@ int main()
 
 	Player.moveTo(112, SCREEN_HEIGHT - 128);
 
-	Spritesheet playerSprites("run.png", 32, &mainWindow);
-	Animation runAnim;
-	runAnim.startFrame = 0;
-	runAnim.endFrame = 7;
-	runAnim.frameDelay = 0.02;
+	Spritesheet playerSprites("runnyB.png", 32, &mainWindow);
 	Player.sprites = &playerSprites;
-	Player.anims[MOVE] = runAnim;
-	Player.currentAnim = &runAnim;
+	Player.anims[IDLE] = Animation(6, 6, 0.0);
+	Player.anims[MOVE] = Animation(0, 7, 0.0125);
+	Player.anims[JUMP] = Animation(5, 5, 0.0);
+	Player.anims[FALL] = Animation(2, 2, 0.0);
+	Player.changeAnim(IDLE);
 
 
 
