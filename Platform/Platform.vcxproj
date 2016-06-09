@@ -144,7 +144,6 @@
   <ItemGroup>
     <ClCompile Include="Animation.cpp" />
     <ClCompile Include="Character.cpp" />
-    <ClCompile Include="Entity.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Spritesheet.cpp" />
     <ClCompile Include="Tilemap.cpp" />
@@ -153,7 +152,6 @@
   <ItemGroup>
     <ClInclude Include="Animation.h" />
     <ClInclude Include="Character.h" />
-    <ClInclude Include="Entity.h" />
     <ClInclude Include="Globals.h" />
     <ClInclude Include="Spritesheet.h" />
     <ClInclude Include="Tilemap.h" />

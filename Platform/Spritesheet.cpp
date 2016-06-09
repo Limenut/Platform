@@ -2,9 +2,9 @@
 
 using namespace std;
 
-Spritesheet::Spritesheet(const string &_file, int _tileRes, Window *window)
+Spritesheet::Spritesheet(const string &_file, int _tileWidth, int _tileHeight, Window *window)
 {
-	makeSheet(_file, _tileRes, window);
+	makeSheet(_file, _tileWidth, _tileHeight, window);
 }
 
 Spritesheet::~Spritesheet()
@@ -16,9 +16,10 @@ Spritesheet::~Spritesheet()
 	frames.clear();
 }
 
-void Spritesheet::makeSheet(const string &_file, int _tileRes, Window *window)
+void Spritesheet::makeSheet(const string &_file, int _tileWidth, int _tileHeight, Window *window)
 {
-	tileRes = _tileRes;
+	tileWidth = _tileWidth;
+	tileHeight = _tileHeight;
 	frames.clear();
 
 	cout << "Loading " << _file.c_str() << "... ";
@@ -37,15 +38,16 @@ void Spritesheet::makeSheet(const string &_file, int _tileRes, Window *window)
 	fullRect.h = fullSurf->h;
 
 	SDL_Texture *tex;
-	SDL_Surface *surf = SDL_CreateRGBSurface(0, tileRes, tileRes, 24, 0, 0, 0, 0);
+	SDL_Surface *surf = SDL_CreateRGBSurface(0, tileWidth, tileHeight, 24, 0, 0, 0, 0);
 	SDL_Rect recto;
-	recto.w = recto.h = tileRes;
+	recto.w = tileWidth;
+	recto.h = tileHeight;
 	recto.x = recto.y = 0;
 
 	//chop into tiles
-	for (recto.y = 0; recto.y < fullRect.h; recto.y += tileRes)
+	for (recto.y = 0; recto.y < fullRect.h; recto.y += tileHeight)
 	{
-		for (recto.x = 0; recto.x < fullRect.w; recto.x += tileRes)
+		for (recto.x = 0; recto.x < fullRect.w; recto.x += tileWidth)
 		{
 			SDL_BlitSurface(fullSurf, &recto, surf, NULL);
 			tex = SDL_CreateTextureFromSurface(window->ren, surf);
@@ -62,7 +64,7 @@ void Spritesheet::makeSheet(const string &_file, int _tileRes, Window *window)
 
 SDL_Texture* Spritesheet::rotateFrameCW(unsigned index, Window *window)
 {
-	SDL_Surface* target = SDL_CreateRGBSurface(0, tileRes, tileRes, 32, 0xff000000, 0x00ff0000, 0x0000ff00, 0x000000ff);
+	SDL_Surface* target = SDL_CreateRGBSurface(0, tileWidth, tileHeight, 32, 0xff000000, 0x00ff0000, 0x0000ff00, 0x000000ff);
 
 	Uint8 *srcPixels;
 

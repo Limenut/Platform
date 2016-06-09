@@ -50,12 +50,12 @@ void close()
 	SDL_Quit();
 }
 
-bool checkMapCollision(Character& scanner, const Tilemap& map)
+/*bool checkMapCollision(Character& scanner, const Tilemap& map)
 {
-	int x1 = scanner.rect.x / map.tileRes;
-	int x2 = (scanner.rect.x + scanner.rect.w - 1) / map.tileRes;
-	int y1 = scanner.rect.y / map.tileRes;
-	int y2 = (scanner.rect.y + scanner.rect.h - 1) / map.tileRes;
+	int x1 = scanner.hitbox.x / map.tileRes;
+	int x2 = (scanner.hitbox.x + scanner.hitbox.w - 1) / map.tileRes;
+	int y1 = scanner.hitbox.y / map.tileRes;
+	int y2 = (scanner.hitbox.y + scanner.hitbox.h - 1) / map.tileRes;
 
 	for (int x = x1; x <= x2; x++)
 	{
@@ -66,13 +66,13 @@ bool checkMapCollision(Character& scanner, const Tilemap& map)
 		}
 	}
 	return false;
-}
+}*/
 
 int main()
 {
 	init();
 
-	Spritesheet levelSprites("testpic.png", 32, &mainWindow);
+	Spritesheet levelSprites("testpic.png", 32, 32, &mainWindow);
 	gameMap.sprites = &levelSprites;
 	gameMap.loadFile("tornila.map");
 	gameMap.update(&mainWindow);
@@ -89,20 +89,25 @@ int main()
 	//minjump = 0.5(jumpVelocity^2/gravity)	= 64 = 2 blocks
 	//maxjump = 0.5(jumpVelocity^2/gravity) + jumpVelocity*jumpTimeMax	= 176 = 5.5 blocks
 
-	Player.rect.w = 32;
-	Player.rect.h = 64;
-	Player.origin.x = (double)(Player.rect.w / 2);
-	Player.origin.y = (double)Player.rect.h;
+	Player.hitbox.w = 32;
+	Player.hitbox.h = 52;
+	Player.origin.x = (double)(Player.hitbox.w / 2);
+	Player.origin.y = (double)Player.hitbox.h;
+
+	Player.padding[0] = 8;
+	Player.padding[1] = 12;
+	Player.padding[2] = 8;
+	Player.padding[3] = 0;
 
 	Player.moveTo(112, SCREEN_HEIGHT - 128);
 
-	Spritesheet playerSprites("runnyB.png", 32, &mainWindow);
+	Spritesheet playerSprites("runnyC.png", 48, 64, &mainWindow);
 	Player.sprites = &playerSprites;
 
-	Player.anims[IDLE] = Animation(6, 0, 0.0);
-	Player.anims[MOVE] = Animation(0, 8, 0.0125);
-	Player.anims[JUMP] = Animation(5, 0, 0.0);
-	Player.anims[FALL] = Animation(2, 0, 0.0);
+	Player.anims[IDLE] = Animation(7, 0, 0.0);
+	Player.anims[MOVE] = Animation(0, 8, 0.01875);
+	Player.anims[JUMP] = Animation(1, 0, 0.0);
+	Player.anims[FALL] = Animation(6, 0, 0.0);
 	Player.changeAnim(IDLE);
 
 
@@ -199,8 +204,8 @@ int main()
 
 		gameMap.render(&mainWindow);
 
-		if (checkMapCollision(Player, gameMap)) SDL_SetRenderDrawColor(mainWindow.ren, 0, 0, 255, 255);
-		else SDL_SetRenderDrawColor(mainWindow.ren, 255, 0, 0, 255);
+		//if (checkMapCollision(Player, gameMap)) SDL_SetRenderDrawColor(mainWindow.ren, 0, 0, 255, 255);
+		//else SDL_SetRenderDrawColor(mainWindow.ren, 255, 0, 0, 255);
 
 		Player.render(mainWindow);
 		SDL_RenderPresent(mainWindow.ren);

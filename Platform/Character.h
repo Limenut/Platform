@@ -66,7 +66,8 @@ public:
 	doubleVector position;
 	doubleVector origin;
 
-	SDL_Rect rect;
+	SDL_Rect hitbox;
+	unsigned padding[4];
 
 	bool airBorne;
 	bool freeFall;

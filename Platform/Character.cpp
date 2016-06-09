@@ -24,12 +24,17 @@ Character::Character()
 	position.y = 0.0;
 	origin.x = 0.0;
 	origin.y = 0.0;
-	rect.x = 0;
-	rect.y = 0;
-	rect.w = 0;
-	rect.h = 0;
+	hitbox.x = 0;
+	hitbox.y = 0;
+	hitbox.w = 0;
+	hitbox.h = 0;
 	airBorne = false;
 	freeFall = false;
+
+	for (int i = 0; i < 4; i++)
+	{
+		padding[i] = 0;
+	}
 }
 
 bool Character::move(double deltaTime, const Tilemap& map)
@@ -121,9 +126,9 @@ bool Character::move(double deltaTime, const Tilemap& map)
 		}
 		
 
-		if (rect.y != int(position.y - origin.y))
+		if (hitbox.y != int(position.y - origin.y))
 		{
-			rect.y = int(position.y - origin.y);  //truncation is fine
+			hitbox.y = int(position.y - origin.y);  //truncation is fine
 			moved = true;
 		}
 		
@@ -135,9 +140,9 @@ bool Character::move(double deltaTime, const Tilemap& map)
 	{
 		facingRight = false;
 		position.x += fmax(velocity.x * deltaTime, -scanBoundary(LEFT, map));
-		if (rect.x != int(position.x - origin.x))
+		if (hitbox.x != int(position.x - origin.x))
 		{
-			rect.x = int(position.x - origin.x);
+			hitbox.x = int(position.x - origin.x);
 			moved = true;
 		}
 		if (currentState == IDLE)
@@ -149,9 +154,9 @@ bool Character::move(double deltaTime, const Tilemap& map)
 	{
 		facingRight = true;
 		position.x += fmin(velocity.x * deltaTime, scanBoundary(RIGHT, map));
-		if (rect.x != int(position.x - origin.x))
+		if (hitbox.x != int(position.x - origin.x))
 		{
-			rect.x = int(position.x - origin.x);
+			hitbox.x = int(position.x - origin.x);
 			moved = true;
 		}
 		if (currentState == IDLE)
@@ -171,8 +176,8 @@ void Character::moveTo(double x, double y)
 {
 	position.x = x;
 	position.y = y;
-	rect.x = int(position.x - origin.x);
-	rect.y = int(position.y - origin.y);
+	hitbox.x = int(position.x - origin.x);
+	hitbox.y = int(position.y - origin.y);
 }
 
 void Character::jumpivate()
@@ -243,10 +248,10 @@ double Character::scanBoundary(Direction direction, const Tilemap& map)
 {
 	//scanner's shape is simplified: find every tile which scanner's hitbox overlaps with
 	//get the first and last indices of these tiles in both axes
-	int x1 = rect.x / map.tileRes;
-	int x2 = (rect.x + rect.w - 1) / map.tileRes;
-	int y1 = rect.y / map.tileRes;
-	int y2 = (rect.y + rect.h - 1) / map.tileRes;
+	int x1 =  hitbox.x / map.tileRes;
+	int x2 = (hitbox.x + hitbox.w - 1) / map.tileRes;
+	int y1 = hitbox.y / map.tileRes;
+	int y2 = (hitbox.y + hitbox.h - 1) / map.tileRes;
 
 	intVector tile1;
 	intVector tile2;
@@ -263,7 +268,7 @@ double Character::scanBoundary(Direction direction, const Tilemap& map)
 	}
 	case RIGHT:
 	{
-		edge = position.x - origin.x + rect.w;
+		edge = position.x - origin.x + hitbox.w;
 		tile1 = { x2,y1 };
 		tile2 = { x2,y2 };
 		break;
@@ -277,7 +282,7 @@ double Character::scanBoundary(Direction direction, const Tilemap& map)
 	}
 	case DOWN:
 	{
-		edge = position.y - origin.y + rect.h;
+		edge = position.y - origin.y + hitbox.h;
 		tile1 = { x1,y2 };
 		tile2 = { x2,y2 };
 		break;
@@ -292,10 +297,10 @@ double Character::scanBoundary(Direction direction, const Tilemap& map)
 void Character::render(const Window& window)
 {
 	SDL_Rect renderRect;
-	renderRect.x = rect.x - window.offsetX;
-	renderRect.y = rect.y - window.offsetY;
-	renderRect.w = rect.w;
-	renderRect.h = rect.h;
+	renderRect.x = hitbox.x - padding[0] - window.offsetX;
+	renderRect.y = hitbox.y - padding[1] - window.offsetY;
+	renderRect.w = hitbox.w + padding[0] + padding[2];
+	renderRect.h = hitbox.h + padding[1] + padding[3];
 
 	//SDL_RenderFillRect(window.ren, &renderRect);
 	//rc.h = rc.w = sprites->tileRes;
